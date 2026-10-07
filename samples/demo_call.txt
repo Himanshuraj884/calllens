@@ -1,0 +1,8 @@
+[00:03] Rep: Thanks for joining, Priya. Today I want to show how Northwind cuts manual data entry for your sales team.
+[00:20] Priya: We spend a lot of time updating the CRM after calls, so that is our main pain point.
+[01:05] Rep: Northwind transcribes each call and fills in the notes automatically, and it syncs with Slack and email.
+[01:40] Priya: Honestly the pricing sounds expensive for a team of twelve. We are also not sure about security.
+[02:10] Rep: Understood. We are SOC 2 Type II certified, and I can offer a 30 day pilot before any discussion on price.
+[02:45] Priya: We already use Brightlane for part of this, so I have a concern about switching.
+[03:10] Rep: I will send the pricing sheet and a comparison with Brightlane by Friday, and we can schedule a follow up with your head of sales next week.
+[03:30] Priya: That works. Please share the security report too.

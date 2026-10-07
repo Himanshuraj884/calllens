@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+scikit-learn>=1.4
+faster-whisper>=1.0      # speech-to-text (Whisper); needs ffmpeg for some formats
+anthropic>=0.40          # optional: LLM summaries and grounded Q&A

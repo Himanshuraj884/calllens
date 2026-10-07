@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CallLens</title>
+<style>
+:root{--ink:#17212b;--muted:#5b6876;--paper:#f4f6f8;--card:#fff;--line:#d6dde4;--accent:#0b6e8a;--warn:#a8650d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:20px 24px;border-bottom:1px solid var(--line);background:var(--card)}
+h1{margin:0;font:600 24px Charter,Georgia,serif}
+header p{margin:2px 0 0;color:var(--muted);font-size:14px}
+main{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;max-width:1100px;margin:20px auto;padding:0 16px}
+@media(max-width:800px){main{grid-template-columns:1fr}}
+section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px 18px;margin-bottom:16px}
+h2{margin:0 0 8px;font:600 17px Charter,Georgia,serif}
+label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+input[type=text],input[type=file],textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:4px;font:inherit}
+button{background:var(--accent);color:#fff;border:0;border-radius:4px;padding:9px 16px;font:inherit;cursor:pointer;margin-top:12px}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #8fd0e3;outline-offset:1px}
+button:disabled{opacity:.5;cursor:wait}
+ul{margin:0;padding-left:0;list-style:none}
+li{padding:6px 0;border-top:1px solid var(--line)}
+li:first-child{border-top:0}
+.obj li{border-left:3px solid var(--warn);padding-left:10px;margin:6px 0;border-top:0}
+pre{white-space:pre-wrap;font:14px/1.6 ui-monospace,Menlo,monospace;max-height:340px;overflow:auto;margin:0;background:var(--paper);padding:10px;border-radius:4px}
+.meta{font-size:13px;color:var(--muted)}
+.stars button{background:var(--paper);color:var(--ink);border:1px solid var(--line);margin:0 4px 0 0;padding:6px 12px}
+.stars button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.err{color:#a12828;font-size:14px;margin-top:8px}
+#results{display:none}
+</style>
+</head>
+<body>
+<header><h1>CallLens</h1><p>Upload a sales call. Get a summary, action items, objections and answers from your playbook.</p></header>
+<main>
+<div>
+  <section>
+    <h2>Add a call</h2>
+    <label for="user">Your name</label>
+    <input type="text" id="user" placeholder="e.g. Asha" required>
+    <label for="file">Recording (.wav .mp3 .m4a) or transcript (.txt)</label>
+    <input type="file" id="file" accept=".wav,.mp3,.m4a,.ogg,.flac,.mp4,.webm,.txt,.md">
+    <button id="go">Analyse call</button>
+    <div class="err" id="err" role="alert"></div>
+  </section>
+  <section id="transcriptBox" style="display:none"><h2>Transcript</h2><pre id="transcript"></pre></section>
+</div>
+<div id="results">
+  <section><h2>Summary</h2><p id="summary"></p><p class="meta" id="meta"></p></section>
+  <section><h2>Action items</h2><p class="meta">Mark each item correct or wrong (skip any you are unsure about).</p><ul id="actions"></ul></section>
+  <section><h2>Objections raised</h2><ul class="obj" id="objections"></ul></section>
+  <section>
+    <h2>Ask the playbook</h2>
+    <textarea id="q" rows="2" placeholder="How do I answer the price objection?"></textarea>
+    <button id="ask">Ask</button>
+    <div id="answer" style="margin-top:10px;white-space:pre-wrap"></div>
+  </section>
+  <section>
+    <h2>How useful was this summary?</h2>
+    <div class="stars" id="stars"></div>
+    <label for="comment">What was missing or wrong? (optional)</label>
+    <textarea id="comment" rows="2"></textarea>
+    <button id="send">Send feedback</button>
+    <div class="meta" id="thanks"></div>
+  </section>
+</div>
+</main>
+<script>
+let call=null,rating=0;
+const $=id=>document.getElementById(id);
+const user=()=>$("user").value.trim();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function api(path,opts){const r=await fetch(path,opts);let d={};try{d=await r.json()}catch(_){}if(!r.ok)throw new Error(typeof d.detail==="string"?d.detail:"Request failed ("+r.status+")");return d}
+function post(path,body){return api(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})}
+
+$("stars").innerHTML=[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" aria-label="${n} out of 5">${n}</button>`).join("");
+$("stars").onclick=e=>{const n=+e.target.dataset.n;if(!n)return;rating=n;[...$("stars").children].forEach(b=>b.classList.toggle("on",+b.dataset.n<=n))};
+
+$("go").onclick=async()=>{
+  const f=$("file").files[0];$("err").textContent="";
+  if(!user()){$("err").textContent="Enter your name first.";return}
+  if(!f){$("err").textContent="Choose a recording or transcript first.";return}
+  const fd=new FormData();fd.append("file",f);fd.append("user_id",user());
+  $("go").disabled=true;$("go").textContent="Analysing...";
+  try{
+    call=await api("/api/calls",{method:"POST",body:fd});
+    $("summary").textContent=call.result.summary||"No summary produced.";
+    $("meta").textContent=`Processed in ${call.total_seconds}s (transcription ${call.stt_seconds}s) | mode: ${call.mode}`;
+    $("actions").innerHTML=(call.result.action_items||[]).map((a,i)=>`<li>${esc(a)}<div class="meta"><label style="display:inline;margin-right:12px"><input type="radio" name="a${i}" value="1"> Correct</label><label style="display:inline"><input type="radio" name="a${i}" value="0"> Wrong</label></div></li>`).join("")||"<li class='meta'>No action items found.</li>";
+    $("objections").innerHTML=(call.result.objections||[]).map(o=>`<li>${esc(o)}</li>`).join("")||"<li class='meta'>No objections found.</li>";
+    $("transcript").textContent=call.transcript;$("transcriptBox").style.display="block";$("results").style.display="block";
+    $("answer").textContent="";$("thanks").textContent="";
+  }catch(e){$("err").textContent=e.message}
+  $("go").disabled=false;$("go").textContent="Analyse call";
+};
+$("ask").onclick=async()=>{
+  const q=$("q").value.trim();if(!q||!call)return;
+  $("answer").textContent="Searching...";
+  try{const d=await post(`/api/calls/${call.id}/ask`,{question:q,user_id:user()});$("answer").textContent=d.answer}
+  catch(e){$("answer").textContent=e.message}
+};
+$("send").onclick=async()=>{
+  if(!call||!rating){$("thanks").textContent="Pick a rating from 1 to 5 first.";return}
+  const confirmed=(call.result.action_items||[]).map((_,i)=>{const c=document.querySelector(`input[name="a${i}"]:checked`);return c?c.value==="1":null});
+  try{await post(`/api/calls/${call.id}/feedback`,{rating,confirmed,comment:$("comment").value});$("thanks").textContent="Thanks, feedback saved."}
+  catch(e){$("thanks").textContent=e.message}
+};
+</script>
+</body>
+</html>

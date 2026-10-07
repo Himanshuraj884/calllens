@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.env
+backend/calllens.db
+*.db
+.DS_Store
+eval/pairs/*.txt
